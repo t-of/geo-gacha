@@ -2,7 +2,7 @@
   "id": "./",
   "name": "geo-gacha — 唯一無二の幾何学アートをひく",
   "short_name": "geo-gacha",
-  "description": "1 日 1 回、9 マスの幾何学模様をひいて集める試作アプリ。",
+  "description": "1 日 1 回、決まった場所に図形が並ぶ幾何学アートをひいて集める試作アプリ。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -14,7 +14,7 @@ function save(key, value) {
   try { localStorage.setItem(STORE + key, JSON.stringify(value)); } catch { /* 保存できなくても遊べる */ }
 }
 
-WebAppKit.init({ title: 'geo-gacha', text: '1 日 1 回、9 マスの幾何学模様をひいて集める試作アプリ。' });
+WebAppKit.init({ title: 'geo-gacha', text: '1 日 1 回、決まった場所に図形が並ぶ幾何学アートをひいて集める試作アプリ。' });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
@@ -27,8 +27,9 @@ function setAudioSession(soundOn) {
 
 // ---- ここからアプリ本体 ----
 //
-// 1 枚の絵 = 正方形を 3×3 に分けた 9 マス。各マスは「背景色」と「パーツ（種類・向き・色）」を持つ。
-// 絵はシード（32bit を 2 つ = 64bit の16進文字列）だけから決まる（splitmix64 で 9 マス分の乱数を引く）。
+// 1 枚の絵 = 正方形のキャンバスに、パッチールの斑点のように「決まった場所」へ図形を置いたもの。
+// 場所・大きさは固定（下の SLOTS）。そこに何を置くか（図形の種類・向き・色、透明にするか）だけがシードで決まる。
+// 絵はシード（32bit を 2 つ = 64bit の16進文字列）だけから決まる（splitmix64 で乱数を引く）。
 // 同じシードなら誰の端末でも同じ絵になる。
 
 const DEBUG = new URLSearchParams(location.search).has('debug');
@@ -58,10 +59,10 @@ function formatSeed(seedHex) {
 }
 
 // ---------- 絵（SVG） ----------
-// 8 色（紺・クリーム・黄・朱・青・緑・赤・紫）× 10 種のパーツ × 4 向き。パーツは色が背景と同じだと消えて見える（それも個性）。
+// 8 色（紺・クリーム・黄・朱・青・緑・赤・紫）。図形の色は約 25% で「透明」（その場所には何も置かない）。
 const PALETTE = ['#16182B', '#F4EEE1', '#F2B632', '#E4573D', '#2F57E0', '#1E9E6A', '#DB3A34', '#7446D8'];
-const PARTS = ['empty', 'square', 'circle', 'ring', 'dot', 'quarter', 'half', 'triangle', 'stripe', 'diamond'];
 
+// 図形は -40..40 の 80×80 を基準に作ってある。SLOTS の r（半径ぶんの大きさ）に合わせて r/40 倍で拡大縮小する。
 function partMarkup(type, color, bg) {
   switch (type) {
     case 'square': return `<rect x="-28" y="-28" width="56" height="56" fill="${color}"/>`;
@@ -73,34 +74,60 @@ function partMarkup(type, color, bg) {
     case 'triangle': return `<path d="M-40,-40 L40,-40 L-40,40 Z" fill="${color}"/>`;
     case 'stripe': return `<rect x="-40" y="-8" width="80" height="16" fill="${color}"/>`;
     case 'diamond': return `<rect x="-24" y="-24" width="48" height="48" fill="${color}" transform="rotate(45)"/>`;
-    default: return ''; // empty
+    default: return ''; // empty（透明）
   }
 }
 
-function cellsFromSeed(seedHex) {
+// 場所・大きさ・重なり順（配列の順＝下から上）は固定。Bauhaus のポスターのような構図（大きな四分円の太陽、
+// 横切る太い帯、色のブロック、同心円、三角と丸、回した四角の枠、下端に並ぶ小さな四角）。
+// candidates はその場所に合う図形の候補（2〜4 個）で、そこから 1 つをシードで選ぶ。位置がキャンバス（0..1000）の
+// 端に近いものは、向き次第で外にはみ出して切れる（パッチールの模様のように、はみ出しも個性のうち）。
+const SLOTS = [
+  { cx: 1000, cy: 0,   r: 340, candidates: ['quarter', 'half', 'circle'] },   // 右上の太陽
+  { cx: 500,  cy: 380, r: 460, candidates: ['stripe'] },                      // 横切る太い帯
+  { cx: 230,  cy: 760, r: 250, candidates: ['square', 'circle', 'quarter'] }, // 左下の大きなブロック
+  { cx: 780,  cy: 640, r: 220, candidates: ['ring', 'square', 'circle'] },    // 右のブロック
+  { cx: 780,  cy: 640, r: 90,  candidates: ['dot', 'circle'] },               // その中の小さい丸
+  { cx: 230,  cy: 900, r: 170, candidates: ['triangle', 'half'] },           // 左下の三角
+  { cx: 230,  cy: 900, r: 55,  candidates: ['dot', 'circle'] },               // 三角の中の丸
+  { cx: 800,  cy: 880, r: 230, candidates: ['ring', 'quarter', 'circle'] },   // 右下の大きな同心円
+  { cx: 800,  cy: 880, r: 120, candidates: ['ring', 'circle'] },              // その中の同心円
+  { cx: 800,  cy: 880, r: 55,  candidates: ['dot'] },                        // 中心の点
+  { cx: 150,  cy: 150, r: 70,  candidates: ['diamond', 'square'] },           // 左上の回した四角
+  { cx: 650,  cy: 500, r: 420, candidates: ['stripe', 'dot'] },               // 縦に細い帯
+  { cx: 110,  cy: 980, r: 32,  candidates: ['square', 'dot'] },               // 下端に並ぶ小さな四角 1
+  { cx: 210,  cy: 980, r: 32,  candidates: ['square', 'dot'] },               // 2
+  { cx: 310,  cy: 980, r: 32,  candidates: ['square', 'dot'] },               // 3
+  { cx: 410,  cy: 980, r: 32,  candidates: ['square', 'dot'] },               // 4
+];
+
+// シードから、キャンバスの背景色と各スロットの中身（図形・向き・色）を決める。
+function artFromSeed(seedHex) {
   const next = splitmix64(seedHex);
-  return Array.from({ length: 9 }, () => ({
-    bg: PALETTE[randInt(next, PALETTE.length)],
-    part: PARTS[randInt(next, PARTS.length)],
-    rot: randInt(next, 4),
-    color: PALETTE[randInt(next, PALETTE.length)],
-  }));
+  const bgIdx = randInt(next, PALETTE.length);
+  const bg = PALETTE[bgIdx];
+  const shapes = SLOTS.map((slot) => {
+    const transparent = randInt(next, 100) < 25; // 約 25% は置かない
+    const part = slot.candidates[randInt(next, slot.candidates.length)];
+    const rot = randInt(next, 4);
+    let colorIdx = randInt(next, PALETTE.length);
+    if (colorIdx === bgIdx) colorIdx = (colorIdx + 1) % PALETTE.length; // 背景と同色は隣の色にずらす（見えない図形を減らす）
+    return { part: transparent ? 'empty' : part, rot, color: PALETTE[colorIdx] };
+  });
+  return { bg, shapes };
 }
 
-// シードだけから決定的に SVG を組む。viewBox は常に 0 0 300 300（1 マス 100×100）で、表示側の大きさは CSS に任せる。
+// シードだけから決定的に SVG を組む。viewBox は常に 0 0 1000 1000 で、表示側の大きさは CSS に任せる。
 function artSVG(seedHex) {
-  const cells = cellsFromSeed(seedHex);
-  let body = '';
-  cells.forEach((cell, i) => {
-    const cx = (i % 3) * 100, cy = Math.floor(i / 3) * 100;
-    const inner = partMarkup(cell.part, cell.color, cell.bg);
-    body += `<g transform="translate(${cx},${cy})">`
-      + `<rect width="100" height="100" fill="${cell.bg}"/>`
-      + (inner ? `<g transform="translate(50,50) rotate(${cell.rot * 90})">${inner}</g>` : '')
-      + `</g>`;
+  const { bg, shapes } = artFromSeed(seedHex);
+  let body = `<rect width="1000" height="1000" fill="${bg}"/>`;
+  shapes.forEach((shape, i) => {
+    const slot = SLOTS[i];
+    const inner = partMarkup(shape.part, shape.color, bg);
+    if (!inner) return;
+    body += `<g transform="translate(${slot.cx},${slot.cy}) rotate(${shape.rot * 90}) scale(${slot.r / 40})">${inner}</g>`;
   });
-  body += `<path d="M100,0 V300 M200,0 V300 M0,100 H300 M0,200 H300" stroke="#16182B" stroke-width="2"/>`;
-  return `<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+  return `<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
 }
 
 // ---------- 保存データ ----------
