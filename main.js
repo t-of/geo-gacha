@@ -140,9 +140,33 @@ function openViewer(item) {
 viewerClose.addEventListener('click', () => { viewer.hidden = true; });
 viewer.addEventListener('click', (e) => { if (e.target === viewer) viewer.hidden = true; });
 
+// ---------- 音 ----------
+let soundOn = load('sound', true), ctx = null;
+const soundBtn = $('soundBtn');
+function showSound() { soundBtn.textContent = soundOn ? '音 オン' : '音 オフ'; }
+soundBtn.addEventListener('click', () => { soundOn = !soundOn; save('sound', soundOn); setAudioSession(soundOn); showSound(); });
+showSound();
+
+// ひいたときの短い上りの和音
+function chime() {
+  if (!soundOn) return;
+  setAudioSession(true);
+  ctx ??= new AudioContext();
+  ctx.resume();
+  [523, 659, 784, 1047].forEach((f, i) => {
+    const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime + i * 0.07;
+    o.type = 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.2, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.4);
+  });
+}
+
 drawBtn.addEventListener('click', () => {
   const collection = loadCollection();
   if (drawnToday(collection) && !DEBUG) return;
+  chime();
   collection.push({ seed: newSeed(), at: new Date().toISOString() });
   saveCollection(collection);
   render();
