@@ -32,7 +32,8 @@ function setAudioSession(soundOn) {
 // 絵はシード（32bit を 2 つ = 64bit の16進文字列）だけから決まる（splitmix64 で乱数を引く）。
 // 同じシードなら誰の端末でも同じ絵になる。
 
-const DEBUG = new URLSearchParams(location.search).has('debug');
+// デモ版のあいだは何度でも引ける。1 日 1 回に戻すときは false にする。
+const DEBUG = true;
 
 // ---------- 乱数（シードから決定的に） ----------
 const MASK64 = (1n << 64n) - 1n;
