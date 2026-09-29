@@ -352,6 +352,8 @@ drawBtn.addEventListener('click', () => {
 confirmNo.addEventListener('click', () => confirmDialog.close());
 confirmYes.addEventListener('click', () => {
   confirmDialog.close();
+  // 演出の音はタイマーの中で鳴るので、iPhone で鳴るように押した瞬間に音の準備をしておく
+  if (soundOn) { setAudioSession(true); ctx ??= new AudioContext(); ctx.resume(); }
   const collection = loadCollection();
   const seed = newSeed();
   collection.push({ seed, at: new Date().toISOString() });
