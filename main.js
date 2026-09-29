@@ -28,35 +28,21 @@ function setAudioSession(soundOn) {
 // ---- ここからアプリ本体 ----
 //
 // 1 枚の絵 = 正方形のキャンバスに、パッチールの斑点のように「決まった場所」へ図形を置いたもの。
-// 場所・大きさは固定（下の SLOTS）。そこに何を置くか（図形の種類・向き・色、透明にするか）だけがシードで決まる。
-// 絵はシード（32bit を 2 つ = 64bit の16進文字列）だけから決まる（splitmix64 で乱数を引く）。
-// 同じシードなら誰の端末でも同じ絵になる。
+// 場所・大きさは固定（下の SLOTS）。そこに何を置くか（図形の種類・向き・色、透明にするか）だけが変わる。
+// 番号（seed、16 進）は絵の中身をそのまま 1 つの数にしたもの。番号が同じ ⇔ 絵が同じ（1 対 1）。
 
 // デモ版のあいだは何度でも引ける。1 日 1 回に戻すときは false にする。
 const DEBUG = true;
 
-// ---------- 乱数（シードから決定的に） ----------
-const MASK64 = (1n << 64n) - 1n;
-
-function splitmix64(seedHex) {
-  let state = BigInt('0x' + seedHex) & MASK64;
-  return () => {
-    state = (state + 0x9E3779B97F4A7C15n) & MASK64;
-    let z = state;
-    z = ((z ^ (z >> 30n)) * 0xBF58476D1CE4E5B9n) & MASK64;
-    z = ((z ^ (z >> 27n)) * 0x94D049BB133111EBn) & MASK64;
-    return (z ^ (z >> 31n)) & MASK64;
-  };
-}
-function randInt(next, max) { return Number(next() % BigInt(max)); }
-
-function newSeed() {
-  const a = new Uint32Array(2);
+// ---------- 乱数 ----------
+function rand(max) {
+  const a = new Uint32Array(1);
   crypto.getRandomValues(a);
-  return a[0].toString(16).padStart(8, '0') + a[1].toString(16).padStart(8, '0');
+  return a[0] % max; // ponytail: max は 100 以下なので偏りは無視できる
 }
+
 function formatSeed(seedHex) {
-  return 'No. ' + seedHex.match(/.{1,4}/g).join('-').toUpperCase();
+  return 'No. ' + seedHex.padStart(SEED_LEN, '0').match(/.{1,4}/g).join('-').toUpperCase();
 }
 
 // ---------- 絵（SVG） ----------
@@ -109,20 +95,52 @@ const SLOTS = [
   { cx: 410,  cy: 980, r: 32,  candidates: ['square', 'dot'] },               // 4
 ];
 
-// シードから、キャンバスの背景色と各スロットの中身（図形・向き・色）を決める。
+// 回しても見た目が変わらない図形は向きを 1 通りにする（帯は 2 通り）。同じ絵に 2 つの番号が付かないように。
+const ROTS = { square: 1, circle: 1, ring: 1, dot: 1, diamond: 1, stripe: 2, quarter: 4, half: 4, triangle: 4 };
+const COLORS = PALETTE.length - 1; // 図形の色は背景と同じ色を除いた 7 色
+// スロットごとの選び方の数（透明 1 ＋ 図形×向き×色）と、全体の数（背景 8 色 × 各スロット）
+const SLOT_OPTS = SLOTS.map((slot) => 1 + slot.candidates.reduce((n, t) => n + ROTS[t] * COLORS, 0));
+const TOTAL = SLOT_OPTS.reduce((n, k) => n * BigInt(k), BigInt(PALETTE.length));
+const SEED_LEN = Math.ceil((TOTAL - 1n).toString(16).length / 4) * 4;
+
+// 新しい絵を 1 枚選び、番号にする。各スロットは約 25% で透明。
+function newSeed() {
+  let n = 0n;
+  for (let i = SLOTS.length - 1; i >= 0; i--) {
+    const slot = SLOTS[i];
+    let v = 0; // 0 = 透明
+    if (rand(100) >= 25) {
+      const k = rand(slot.candidates.length);
+      v = 1 + slot.candidates.slice(0, k).reduce((m, t) => m + ROTS[t] * COLORS, 0)
+        + rand(ROTS[slot.candidates[k]]) * COLORS + rand(COLORS);
+    }
+    n = n * BigInt(SLOT_OPTS[i]) + BigInt(v);
+  }
+  n = n * BigInt(PALETTE.length) + BigInt(rand(PALETTE.length));
+  return n.toString(16).padStart(SEED_LEN, '0');
+}
+
+// 番号から、背景色と各スロットの中身（図形・向き・色）を取り出す。newSeed の逆。
+// 前の版の番号（16 桁）も TOTAL で割った余りとして読むので、どの番号も必ず絵になる。
 function artFromSeed(seedHex) {
-  const next = splitmix64(seedHex);
-  const bgIdx = randInt(next, PALETTE.length);
-  const bg = PALETTE[bgIdx];
-  const shapes = SLOTS.map((slot) => {
-    const transparent = randInt(next, 100) < 25; // 約 25% は置かない
-    const part = slot.candidates[randInt(next, slot.candidates.length)];
-    const rot = randInt(next, 4);
-    let colorIdx = randInt(next, PALETTE.length);
-    if (colorIdx === bgIdx) colorIdx = (colorIdx + 1) % PALETTE.length; // 背景と同色は隣の色にずらす（見えない図形を減らす）
-    return { part: transparent ? 'empty' : part, rot, color: PALETTE[colorIdx] };
+  let n = BigInt('0x' + seedHex) % TOTAL;
+  const bgIdx = Number(n % BigInt(PALETTE.length));
+  n /= BigInt(PALETTE.length);
+  const shapes = SLOTS.map((slot, i) => {
+    let v = Number(n % BigInt(SLOT_OPTS[i]));
+    n /= BigInt(SLOT_OPTS[i]);
+    if (v === 0) return { part: 'empty', rot: 0, color: PALETTE[0] };
+    v -= 1;
+    for (const t of slot.candidates) {
+      const size = ROTS[t] * COLORS;
+      if (v < size) {
+        const k = v % COLORS;
+        return { part: t, rot: Math.floor(v / COLORS), color: PALETTE[k < bgIdx ? k : k + 1] };
+      }
+      v -= size;
+    }
   });
-  return { bg, shapes };
+  return { bg: PALETTE[bgIdx], shapes };
 }
 
 // シードだけから決定的に SVG を組む。viewBox は常に 0 0 1000 1000 で、表示側の大きさは CSS に任せる。
