@@ -56,28 +56,65 @@ button { font: inherit; color: inherit; }
 .credit { text-align: center; font-size: 12px; color: var(--muted); }
 .credit a { color: inherit; }
 
-/* ---- 今日の 1 枚 ---- */
-.today { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 700px; }
-/* デモ用: 絵の右に配置図 */
-.today__pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; align-items: start; }
-.today__map { margin: 0; }
-.today__map svg { display: block; width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; }
-.today__map figcaption { margin-top: 4px; font-size: 11px; color: var(--muted); text-align: center; }
-.today__art, .today__placeholder { width: 100%; aspect-ratio: 1 / 1; overflow: hidden; }
+/* ---- 今日の 1 枚（美術館の展示室） ---- */
+.today { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; max-width: 420px; }
 
-/* ---- 額縁（木の枠＋マット） ---- */
-/* 枠の 4 辺を少しずつ違う色にして、上から光が当たっているように見せる */
+.gallery-room {
+  position: relative;
+  width: 100%;
+  padding: 28px 16px 18px;
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 140% 90% at 50% -10%, rgba(255, 226, 170, 0.16), transparent 60%),
+    linear-gradient(180deg, #1c1e33 0%, #101120 78%, #0a0b12 100%);
+  box-shadow: inset 0 -50px 70px -30px rgba(0, 0, 0, 0.65);
+}
+.gallery-room::before { /* 壁の質感（縦の淡い筋） */
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 2px, transparent 2px 26px);
+  pointer-events: none;
+}
+.gallery-room::after { /* 幅木（壁と床の境目） */
+  content: '';
+  position: absolute; left: 6%; right: 6%; bottom: 12px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(244, 238, 225, 0.32), transparent);
+}
+.spotlight {
+  position: absolute; top: -20%; left: 50%; width: 150%; height: 65%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(255, 244, 214, 0.35), transparent 65%);
+  opacity: 0.5;
+  filter: blur(2px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  pointer-events: none;
+}
+.spotlight--bright { opacity: 1; transform: translateX(-50%) scale(1.08); }
+
+.frame-wrap { position: relative; z-index: 1; width: 100%; max-width: 280px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+
+/* ---- 額縁（金） ---- */
 .frame {
+  position: relative;
   width: 100%;
   padding: 9%;
   background: var(--cream);
-  border: 14px solid;
-  border-color: #6b4a2e #4a3120 #3a2618 #5a3e27;
+  border: 14px solid transparent;
+  border-image: linear-gradient(135deg, #fbe7a1, #b8860b 35%, #6e5312 55%, #f6d573 75%, #8a6a1a) 1;
   box-shadow:
     inset 2px 2px 6px rgba(0, 0, 0, 0.28),  /* マットの切り口の影 */
-    0 14px 30px rgba(0, 0, 0, 0.55);        /* 壁に落ちる影 */
+    0 18px 34px rgba(0, 0, 0, 0.6);         /* 壁に落ちる影 */
 }
-.frame .today__art, .frame .viewer__art svg { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12); }
+.frame::before { /* 内側の細い金の段 */
+  content: '';
+  position: absolute; inset: 5px;
+  border: 1px solid rgba(110, 83, 18, 0.55);
+  pointer-events: none;
+}
+.today__art, .today__placeholder { width: 100%; aspect-ratio: 1 / 1; overflow: hidden; }
+.today__art { position: relative; }
 .today__art svg { display: block; width: 100%; height: 100%; }
 .today__placeholder {
   display: grid; place-items: center;
@@ -85,7 +122,58 @@ button { font: inherit; color: inherit; }
   border: 1px dashed rgba(255, 255, 255, 0.2);
   font-size: 48px; color: var(--muted);
 }
-.today__no { margin: 0; font-family: ui-monospace, monospace; font-size: 13px; color: var(--muted); letter-spacing: 0.05em; }
+
+/* ---- ひく演出（幕・図形のポップ・きらめき） ---- */
+.reveal-stage { position: absolute; inset: 9%; z-index: 2; cursor: pointer; overflow: hidden; }
+.curtain {
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.16) 0 10px, rgba(255, 255, 255, 0.04) 10px 20px),
+    linear-gradient(180deg, #7a1620, #4a0d14 60%, #2c0810);
+  transform: translateY(0%);
+  transition: transform 0.8s cubic-bezier(.4, 0, .2, 1);
+}
+.curtain--up { transform: translateY(-100%); }
+
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.15); }
+  60% { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.reveal-shape { opacity: 0; animation: popIn both ease-out; }
+
+@keyframes twinkle {
+  0% { opacity: 0; transform: scale(0.3); }
+  40% { opacity: 1; transform: scale(1.3); }
+  100% { opacity: 0; transform: scale(0.5); }
+}
+.sparkle {
+  position: absolute;
+  width: 6px; height: 6px;
+  background: radial-gradient(circle, #fff, rgba(255, 255, 255, 0));
+  border-radius: 50%;
+  pointer-events: none;
+  animation: twinkle 0.9s ease-out forwards;
+  z-index: 3;
+}
+
+/* ---- 美術館のキャプション（プレート） ---- */
+.plaque {
+  width: 100%;
+  max-width: 260px;
+  background: #faf8f2;
+  color: #2a2a2a;
+  padding: 10px 16px;
+  border-radius: 2px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
+  text-align: center;
+}
+.plaque__no { margin: 0 0 2px; font-size: 13px; letter-spacing: 0.05em; }
+.plaque__no span { display: inline-block; opacity: 0; transform: translateY(4px); animation: letterIn 0.35s ease forwards; }
+@keyframes letterIn { to { opacity: 1; transform: translateY(0); } }
+.plaque__title { margin: 0; font-size: 11px; font-style: italic; color: #6b6b6b; }
+
 .draw-btn {
   border: none; border-radius: 999px; padding: 14px 40px;
   background: var(--accent); color: var(--bg); font-size: 16px; font-weight: bold;
@@ -94,16 +182,31 @@ button { font: inherit; color: inherit; }
 .draw-btn:active { transform: scale(0.97); }
 .today__msg { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
 
-/* ---- ギャラリー ---- */
+/* ---- 配置図（デモ、控えめに折りたたむ） ---- */
+.map-box { width: 100%; max-width: 280px; color: var(--muted); font-size: 12px; }
+.map-box summary { cursor: pointer; text-align: center; }
+.map-box #todayMap svg { display: block; width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; margin-top: 8px; }
+.map-box__note { margin: 4px 0 0; text-align: center; }
+
+/* ---- ギャラリー（サロン展示、小さな金の額） ---- */
 .gallery__title { font-size: 14px; color: var(--muted); text-align: center; margin: 0; }
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   max-width: 480px;
 }
-.gallery__item { aspect-ratio: 1 / 1; border-radius: 6px; overflow: hidden; cursor: pointer; }
+.gallery__item {
+  aspect-ratio: 1 / 1;
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #0e0f18;
+  border: 4px solid transparent;
+  border-image: linear-gradient(135deg, #f6d573, #8a6a1a, #f6d573) 1;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
 .gallery__item svg { display: block; width: 100%; height: 100%; }
 
 /* ---- 大きく見る（額縁） ---- */
@@ -116,17 +219,16 @@ button { font: inherit; color: inherit; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
   background: rgba(10, 11, 18, 0.92);
   padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
 }
 .viewer__frame {
-  width: min(84vw, 380px);
+  width: min(84vw, 340px);
   text-align: center;
 }
 .viewer__art svg { display: block; width: 100%; aspect-ratio: 1 / 1; }
-.viewer__no { margin: 12px 0 2px; font-family: ui-monospace, monospace; font-size: 13px; color: var(--bg); letter-spacing: 0.05em; }
-.viewer__date { margin: 0; font-size: 11px; color: #6b6f7a; }
+.viewer__date { margin: 6px 0 0; font-size: 11px; color: #6b6b6b; }
 .viewer__close {
   border: 1px solid rgba(255, 255, 255, 0.3);
   background: transparent;
@@ -135,4 +237,20 @@ button { font: inherit; color: inherit; }
   padding: 8px 24px;
   font-size: 13px;
   cursor: pointer;
+}
+
+/* ---- ひく前の確認 ---- */
+dialog.confirm {
+  border: none; border-radius: 8px; padding: 20px;
+  max-width: min(90vw, 340px);
+  background: var(--cream); color: #222;
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif;
+}
+dialog.confirm::backdrop { background: rgba(0, 0, 0, 0.6); }
+.confirm__lead { margin: 0 0 6px; font-size: 16px; font-weight: bold; }
+.confirm__sub { margin: 0 0 16px; font-size: 13px; color: #555; }
+.confirm__actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+@media (prefers-reduced-motion: reduce) {
+  .curtain, .reveal-shape, .spotlight, .sparkle, .plaque__no span { transition-duration: 0.2s !important; animation-duration: 0.25s !important; }
 }

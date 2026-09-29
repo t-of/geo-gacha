@@ -197,6 +197,8 @@ const $ = (id) => document.getElementById(id);
 const todayArt = $('todayArt'), todayNo = $('todayNo'), drawBtn = $('drawBtn'), todayMsg = $('todayMsg'), todayMap = $('todayMap');
 const gallery = $('gallery'), galleryCount = $('galleryCount');
 const viewer = $('viewer'), viewerArt = $('viewerArt'), viewerNo = $('viewerNo'), viewerDate = $('viewerDate'), viewerClose = $('viewerClose');
+const spotlight = $('spotlight'), frameWrap = $('frameWrap'), revealStage = $('revealStage');
+const confirmDialog = $('confirmDialog'), confirmNo = $('confirmNo'), confirmYes = $('confirmYes');
 
 function openViewer(item) {
   viewerArt.innerHTML = artSVG(item.seed);
@@ -214,29 +216,149 @@ function showSound() { soundBtn.textContent = soundOn ? '音 オン' : '音 オ�
 soundBtn.addEventListener('click', () => { soundOn = !soundOn; save('sound', soundOn); setAudioSession(soundOn); showSound(); });
 showSound();
 
-// ひいたときの短い上りの和音
-function chime() {
+function tone(freq, dur, t) {
   if (!soundOn) return;
   setAudioSession(true);
   ctx ??= new AudioContext();
   ctx.resume();
-  [523, 659, 784, 1047].forEach((f, i) => {
-    const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime + i * 0.07;
-    o.type = 'triangle'; o.frequency.value = f;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.2, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.4);
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.16, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+// 図形が 1 つ出るたびの「ポン」。出てくるたびに音階が上がっていく。
+const POP_SCALE = [523, 587, 659, 698, 784, 880, 988, 1047];
+function playPop(i) {
+  if (!soundOn) return;
+  ctx ??= new AudioContext();
+  tone(POP_SCALE[i % POP_SCALE.length] * (1 + Math.floor(i / POP_SCALE.length) * 0.5), 0.09, ctx.currentTime);
+}
+// そろったときのファンファーレ風の和音（低音を 1 つ足して少しゴージャスに）
+function fanfare() {
+  if (!soundOn) return;
+  setAudioSession(true);
+  ctx ??= new AudioContext();
+  ctx.resume();
+  [262, 523, 659, 784, 1047].forEach((f, i) => tone(f, 0.4, ctx.currentTime + i * 0.07));
+}
+
+// きらめき（光の粒）を額の中にいくつか散らす
+function sparkle() {
+  for (let i = 0; i < 10; i++) {
+    const s = document.createElement('span');
+    s.className = 'sparkle';
+    s.style.left = `${8 + Math.random() * 84}%`;
+    s.style.top = `${8 + Math.random() * 84}%`;
+    s.style.animationDelay = `${Math.random() * 300}ms`;
+    frameWrap.appendChild(s);
+    s.addEventListener('animationend', () => s.remove());
+  }
+}
+
+// 番号を 1 文字ずつ出す（animate = false ならそのまま表示、ギャラリーを開いたときなど）
+function showSeedText(seedHex, animate) {
+  const text = formatSeed(seedHex);
+  todayNo.hidden = false;
+  todayNo.innerHTML = '';
+  if (!animate) { todayNo.textContent = text; return; }
+  [...text].forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.textContent = ch === ' ' ? ' ' : ch;
+    span.style.animationDelay = `${i * 35}ms`;
+    todayNo.appendChild(span);
   });
 }
 
+// ---------- ひく演出 ----------
+// 幕が上がる → スロットの並び順（下から上）で図形が 1 つずつポップして出る（大きいものほどゆっくり）→
+// スポットライトが強まり、きらめきとファンファーレ、番号が 1 文字ずつ出る。タップでいつでも最後まで飛ばせる。
+let revealTimers = [];
+function afterMs(ms, fn) { revealTimers.push(setTimeout(fn, ms)); }
+function clearRevealTimers() { revealTimers.forEach(clearTimeout); revealTimers = []; }
+
+function playReveal(seedHex, onDone) {
+  clearRevealTimers();
+  const { bg, shapes } = artFromSeed(seedHex);
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const curtain = revealStage.querySelector('.curtain');
+  let finished = false;
+
+  revealStage.hidden = false;
+  curtain.classList.remove('curtain--up');
+  spotlight.classList.remove('spotlight--bright');
+  todayNo.hidden = true; todayNo.innerHTML = '';
+  todayArt.innerHTML = `<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg"><rect width="1000" height="1000" fill="${bg}"/><g id="revealLayers"></g></svg>`;
+  const layers = $('revealLayers');
+
+  function finishInstantly() {
+    if (finished) return;
+    finished = true;
+    clearRevealTimers();
+    revealStage.hidden = true;
+    todayArt.innerHTML = artSVG(seedHex);
+    spotlight.classList.add('spotlight--bright');
+    showSeedText(seedHex, false);
+    onDone();
+  }
+  revealStage.onclick = finishInstantly; // タップで最後まで飛ばす
+
+  if (reduced) {
+    afterMs(30, () => curtain.classList.add('curtain--up'));
+    afterMs(320, () => {
+      todayArt.innerHTML = artSVG(seedHex);
+      spotlight.classList.add('spotlight--bright');
+      showSeedText(seedHex, false);
+      afterMs(400, finishInstantly);
+    });
+    return;
+  }
+
+  const visible = shapes.map((s, i) => ({ ...s, slot: SLOTS[i] })).filter((s) => s.part !== 'empty');
+
+  afterMs(150, () => curtain.classList.add('curtain--up'));
+  afterMs(700, () => {
+    visible.forEach((s, vi) => {
+      afterMs(vi * 90, () => {
+        const dur = Math.max(220, Math.min(700, 260 + s.slot.r * 0.9));
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('transform', `translate(${s.slot.cx},${s.slot.cy}) rotate(${s.rot * 90}) scale(${s.slot.r / 40})`);
+        const inner = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        inner.setAttribute('class', 'reveal-shape');
+        inner.style.animationDuration = `${dur}ms`;
+        inner.innerHTML = partMarkup(s.part, s.color, bg);
+        g.appendChild(inner);
+        layers.appendChild(g);
+        playPop(vi);
+      });
+    });
+    afterMs(visible.length * 90 + 700, () => {
+      spotlight.classList.add('spotlight--bright');
+      sparkle();
+      fanfare();
+      showSeedText(seedHex, true);
+      afterMs(900, finishInstantly);
+    });
+  });
+}
+
+// ---------- ひく（確認 → 演出） ----------
 drawBtn.addEventListener('click', () => {
   const collection = loadCollection();
   if (drawnToday(collection) && !DEBUG) return;
-  chime();
-  collection.push({ seed: newSeed(), at: new Date().toISOString() });
+  confirmDialog.showModal();
+});
+confirmNo.addEventListener('click', () => confirmDialog.close());
+confirmYes.addEventListener('click', () => {
+  confirmDialog.close();
+  const collection = loadCollection();
+  const seed = newSeed();
+  collection.push({ seed, at: new Date().toISOString() });
   saveCollection(collection);
-  render();
+  drawBtn.hidden = true;
+  todayMsg.hidden = true;
+  playReveal(seed, () => render());
 });
 
 function render() {
@@ -248,12 +370,13 @@ function render() {
   if (last && already) {
     todayArt.innerHTML = artSVG(last.seed);
     todayMap.innerHTML = slotMapSVG(last.seed);
-    todayNo.textContent = formatSeed(last.seed);
-    todayNo.hidden = false;
+    showSeedText(last.seed, false);
+    spotlight.classList.add('spotlight--bright');
   } else {
     todayArt.innerHTML = '<div class="today__placeholder">?</div>';
     todayMap.innerHTML = slotMapSVG();
     todayNo.hidden = true;
+    spotlight.classList.remove('spotlight--bright');
   }
 
   if (already && !DEBUG) {

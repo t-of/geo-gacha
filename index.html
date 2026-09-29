@@ -43,30 +43,56 @@
 
     <section class="stage" id="stage">
       <div class="today">
-        <div class="today__pair">
-          <div class="frame"><div class="today__art" id="todayArt"></div></div>
-          <figure class="today__map">
-            <div id="todayMap"></div>
-            <figcaption>配置図（実線＝置かれた／点線＝透明）</figcaption>
-          </figure>
+        <div class="gallery-room">
+          <div class="spotlight" id="spotlight"></div>
+          <div class="frame-wrap" id="frameWrap">
+            <div class="frame">
+              <div class="today__art" id="todayArt"></div>
+              <div class="reveal-stage" id="revealStage" hidden>
+                <div class="curtain"></div>
+              </div>
+            </div>
+            <div class="plaque">
+              <p class="plaque__no" id="todayNo" hidden></p>
+              <p class="plaque__title">Geometric Composition</p>
+            </div>
+          </div>
         </div>
-        <p class="today__no" id="todayNo" hidden></p>
+
         <button class="draw-btn" id="drawBtn">ひく</button>
         <p class="today__msg" id="todayMsg" hidden></p>
+
+        <details class="map-box">
+          <summary>配置図（デモ）</summary>
+          <div id="todayMap"></div>
+          <p class="map-box__note">実線＝置かれた／点線＝透明</p>
+        </details>
       </div>
 
-      <h2 class="gallery__title">ギャラリー <span id="galleryCount"></span></h2>
+      <h2 class="gallery__title">サロン ギャラリー <span id="galleryCount"></span></h2>
       <div class="gallery" id="gallery"></div>
     </section>
 
     <div class="viewer" id="viewer" hidden>
       <div class="viewer__frame frame">
         <div class="viewer__art" id="viewerArt"></div>
-        <p class="viewer__no" id="viewerNo"></p>
+      </div>
+      <div class="plaque">
+        <p class="plaque__no" id="viewerNo"></p>
+        <p class="plaque__title">Geometric Composition</p>
         <p class="viewer__date" id="viewerDate"></p>
       </div>
       <button class="viewer__close" id="viewerClose">閉じる</button>
     </div>
+
+    <dialog class="confirm" id="confirmDialog">
+      <p class="confirm__lead">今日の 1 枚をひきますか？</p>
+      <p class="confirm__sub">1 日 1 回だけ。ひいた絵はあなただけの 1 枚になります。</p>
+      <div class="confirm__actions">
+        <button type="button" class="pill" id="confirmNo">やめる</button>
+        <button type="button" class="draw-btn" id="confirmYes">ひく</button>
+      </div>
+    </dialog>
 
     <footer class="credit">
       <a href="/">T.OF...</a> のアプリ ／ <a href="https://t-of.github.io/contact/">問い合わせ</a>
