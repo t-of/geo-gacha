@@ -85,6 +85,8 @@ function partMarkup(type, color, bg) {
 // 端に近いものは、向き次第で外にはみ出して切れる（パッチールの模様のように、はみ出しも個性のうち）。
 const SLOTS = [
   { cx: 1000, cy: 0,   r: 340, candidates: ['quarter', 'half', 'circle'] },   // 右上の太陽
+  { cx: 380,  cy: 190, r: 170, candidates: ['square', 'circle', 'quarter', 'half'] }, // 上中央のブロック
+  { cx: 120,  cy: 430, r: 120, candidates: ['triangle', 'half', 'quarter'] }, // 左の中ほどの三角
   { cx: 500,  cy: 380, r: 460, candidates: ['stripe'] },                      // 横切る太い帯
   { cx: 230,  cy: 760, r: 250, candidates: ['square', 'circle', 'quarter'] }, // 左下の大きなブロック
   { cx: 780,  cy: 640, r: 220, candidates: ['ring', 'square', 'circle'] },    // 右のブロック
@@ -95,6 +97,11 @@ const SLOTS = [
   { cx: 800,  cy: 880, r: 120, candidates: ['ring', 'circle'] },              // その中の同心円
   { cx: 800,  cy: 880, r: 55,  candidates: ['dot'] },                        // 中心の点
   { cx: 150,  cy: 150, r: 70,  candidates: ['diamond', 'square'] },           // 左上の回した四角
+  { cx: 380,  cy: 190, r: 70,  candidates: ['dot', 'circle', 'ring'] },       // 上中央のブロックの中の丸
+  { cx: 560,  cy: 50,  r: 26,  candidates: ['square', 'dot'] },               // 上端に並ぶ小さな四角 1
+  { cx: 640,  cy: 50,  r: 26,  candidates: ['square', 'dot'] },               // 2
+  { cx: 720,  cy: 50,  r: 26,  candidates: ['square', 'dot'] },               // 3
+  { cx: 800,  cy: 50,  r: 26,  candidates: ['square', 'dot'] },               // 4
   { cx: 650,  cy: 500, r: 420, candidates: ['stripe', 'dot'] },               // 縦に細い帯
   { cx: 110,  cy: 980, r: 32,  candidates: ['square', 'dot'] },               // 下端に並ぶ小さな四角 1
   { cx: 210,  cy: 980, r: 32,  candidates: ['square', 'dot'] },               // 2
