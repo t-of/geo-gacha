@@ -131,6 +131,20 @@ function artSVG(seedHex) {
   return `<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
 }
 
+// デモ用: どのスロットがどこにあるかの配置図。枠は各スロットの大きさ（cx±r）。
+// 絵を渡すと、図形が置かれたスロットは実線、透明（置かれなかった）スロットは点線にする。
+function slotMapSVG(seedHex) {
+  const shapes = seedHex ? artFromSeed(seedHex).shapes : null;
+  let body = '<rect width="1000" height="1000" fill="#1f2238"/>';
+  SLOTS.forEach((slot, i) => {
+    const used = !shapes || shapes[i].part !== 'empty';
+    const color = shapes && used ? shapes[i].color : '#9aa0ab';
+    body += `<rect x="${slot.cx - slot.r}" y="${slot.cy - slot.r}" width="${slot.r * 2}" height="${slot.r * 2}" fill="none" stroke="${color}" stroke-width="5"${used ? '' : ' stroke-dasharray="14 12"'}/>`;
+    body += `<text x="${Math.min(Math.max(slot.cx, 30), 970)}" y="${Math.min(Math.max(slot.cy, 40), 985)}" fill="#eceef3" font-size="${slot.r < 60 ? 36 : 48}" font-weight="bold" text-anchor="middle" dominant-baseline="middle" paint-order="stroke" stroke="#1f2238" stroke-width="8">${i + 1}</text>`;
+  });
+  return `<svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+}
+
 // ---------- 保存データ ----------
 // geo-gacha.collection: { seed: 16桁 hex, at: ISO 日時 }[]（入手した順）
 function loadCollection() { return load('collection', []); }
@@ -155,7 +169,7 @@ function formatWait(ms) {
 
 // ---------- 画面 ----------
 const $ = (id) => document.getElementById(id);
-const todayArt = $('todayArt'), todayNo = $('todayNo'), drawBtn = $('drawBtn'), todayMsg = $('todayMsg');
+const todayArt = $('todayArt'), todayNo = $('todayNo'), drawBtn = $('drawBtn'), todayMsg = $('todayMsg'), todayMap = $('todayMap');
 const gallery = $('gallery'), galleryCount = $('galleryCount');
 const viewer = $('viewer'), viewerArt = $('viewerArt'), viewerNo = $('viewerNo'), viewerDate = $('viewerDate'), viewerClose = $('viewerClose');
 
@@ -208,10 +222,12 @@ function render() {
   const already = drawnToday(collection);
   if (last && already) {
     todayArt.innerHTML = artSVG(last.seed);
+    todayMap.innerHTML = slotMapSVG(last.seed);
     todayNo.textContent = formatSeed(last.seed);
     todayNo.hidden = false;
   } else {
     todayArt.innerHTML = '<div class="today__placeholder">?</div>';
+    todayMap.innerHTML = slotMapSVG();
     todayNo.hidden = true;
   }
 
