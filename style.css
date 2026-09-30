@@ -12,11 +12,6 @@
 html { background-color: var(--bg); -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  min-height: 100dvh;
-  /* 天井からの柔らかい光と、下へいくほど少し沈む壁 */
-  background:
-    radial-gradient(ellipse 120% 60% at 50% 0%, rgba(255, 250, 238, 0.9), transparent 70%),
-    linear-gradient(180deg, #F8F6F1 0%, var(--bg) 55%, #E9E5DC 100%);
   background-color: var(--bg);
   color: var(--fg);
   font-family: system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
@@ -25,8 +20,45 @@ body {
 button { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
 
+/* ---- 展示室の壁（画面に固定。天井の縁・腰壁の羽目板・幅木・木の床） ---- */
+.room {
+  position: fixed; inset: 0; z-index: 0;   /* .app を z-index: 1 で上に重ねる */
+  pointer-events: none;
+  background: radial-gradient(ellipse 120% 45% at 50% 0%, rgba(255, 248, 230, 0.95), transparent 70%), #F4F0E7;
+}
+.room::before { /* 天井の縁 */
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 16px;
+  background: linear-gradient(180deg, #FFFDF8 0 5px, #E4DCCB 5px 7px, #FBF8F1 7px 12px, #D6CCB8 12px 13px, rgba(0, 0, 0, 0.05) 13px 16px);
+}
+.room__wainscot {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: clamp(180px, 28dvh, 260px);
+  display: flex; flex-direction: column;
+}
+.room__rail { height: 10px; background: linear-gradient(180deg, #FFFDF8 0 3px, #DCD3C1 3px 5px, #F3EEE4 5px 8px, #CFC5B1 8px 10px); }
+.room__panels {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-auto-rows: 100%;   /* 入りきらない羽目板は次の行へ送って隠す */
+  gap: 14px;
+  padding: 18px 14px;
+  overflow: hidden;
+  background: #EFEAE0;
+}
+.room__panels i { border: 1px solid #D9D0BE; box-shadow: inset 1px 1px 0 #FFFDF8, 1px 1px 0 #FFFDF8; }
+.room__base { height: 12px; background: linear-gradient(180deg, #FFFFFF, #E6DFD1); }
+.room__floor {
+  height: 44px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent 40%),
+    repeating-linear-gradient(90deg, #C9A77C 0 46px, #B8946A 46px 47px, #CFAE84 47px 93px, #B8946A 93px 94px);
+}
+
 /* 画面の端に置くものはセーフエリアの分だけ内側に。高さは 100vh ではなく 100dvh */
 .app {
+  position: relative; z-index: 1;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
