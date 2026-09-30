@@ -200,7 +200,53 @@ const viewer = $('viewer'), viewerArt = $('viewerArt'), viewerNo = $('viewerNo')
 const spotlight = $('spotlight'), frameWrap = $('frameWrap'), revealStage = $('revealStage');
 const confirmDialog = $('confirmDialog'), confirmNo = $('confirmNo'), confirmYes = $('confirmYes');
 
+// ---------- PNG で保存 ----------
+// 共有シートの navigator.share は押した直後に呼ばないと断られるので、開いたときに先に PNG を作っておく。
+const viewerSave = $('viewerSave');
+let savePng = null; // { blob, name }
+
+function artPNG(seedHex, size = 2000) {
+  const svg = artSVG(seedHex).replace('<svg ', `<svg width="${size}" height="${size}" `);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      c.getContext('2d').drawImage(img, 0, 0);
+      c.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob'))), 'image/png');
+    };
+    img.onerror = reject;
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  });
+}
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+viewerSave.addEventListener('click', async () => {
+  if (!savePng) return;
+  const { blob, name } = savePng;
+  const file = new File([blob], name, { type: 'image/png' });
+  // スマホは共有シート（「画像を保存」で写真に入る）、PC はダウンロード
+  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  download(blob, name);
+});
+
 function openViewer(item) {
+  savePng = null;
+  viewerSave.disabled = true;
+  artPNG(item.seed).then((blob) => {
+    savePng = { blob, name: `geo-gacha-${formatSeed(item.seed).slice(4)}.png` };
+    viewerSave.disabled = false;
+  }).catch(() => {});
   viewerArt.innerHTML = artSVG(item.seed);
   viewerNo.textContent = formatSeed(item.seed);
   viewerDate.textContent = localDateStr(new Date(item.at)) + ' に入手';
