@@ -266,7 +266,8 @@ button { font: inherit; color: inherit; }
   padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
 }
 .viewer__frame {
-  width: min(84vw, 340px);
+  width: min(84vw, 62dvh, 520px);
+  padding: min(7.5vw, 30px);   /* .frame の 9% は画面幅に対してになり、PC だとマットが太りすぎて絵が縮む */
   text-align: center;
 }
 .viewer__art svg { display: block; width: 100%; aspect-ratio: 1 / 1; }
